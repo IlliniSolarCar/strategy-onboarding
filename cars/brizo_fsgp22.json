@@ -1,0 +1,15 @@
+{
+    "name": "Brizo",
+    "P_drag": 0.07284,
+    "P_fric": 34.42212,
+    "P_accel": 371.56103,
+    "mass": 250,
+    "min_mph": 5,
+    "max_mph": 55,
+    "array_multiplier": 0.8,
+    "max_motor_output_power": 6000,
+    "max_motor_input_power": -4000,
+    "max_watthours": 5400,
+    "max_accel": 1,
+    "max_decel": -1
+}
