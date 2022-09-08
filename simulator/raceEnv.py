@@ -3,14 +3,8 @@ import gym
 from gym import spaces
 import numpy as np
 import json
-
-
-# import matplotlib
-# matplotlib.use('TkAgg')
-
 import matplotlib.pyplot as plt
 import sys, os
-
 
 dir = os.path.dirname(__file__)
 sys.path.insert(0, dir+'/../')   #allow imports from parent directory "onboarding22"
@@ -616,7 +610,6 @@ class RaceEnv(gym.Env):
         times_window, battery_window = trim_to_range(times_so_far, battery_so_far, self.time.timestamp()-3600, self.time.timestamp())
         self.ln_battery.set_xdata((times_window-time_shift))
         self.ln_battery.set_ydata(battery_window)
-        print(battery_window)
 
         self.tx.set_text(f"{self.time.strftime('%m/%d/%Y, %H:%M')}")
 
@@ -629,8 +622,6 @@ def main():
 
 
     env = RaceEnv(render=True)
-
-    # print(env.legs)
 
     env.action = {
         "target_mph": 54,

@@ -1,0 +1,8 @@
+.venv
+__pycache__/
+key.txt
+.ipynb_checkpoints
+.DS_Store
+
+analysis/data/datalogger_fsgp2022_day1
+analysis/data/datalogger_fsgp2022_day2
