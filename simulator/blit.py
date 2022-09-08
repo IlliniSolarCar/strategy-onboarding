@@ -1,5 +1,4 @@
-import matplotlib.pyplot as plt
-
+#Speeds up rendering by updating only certain artists. Used by raceEnv.py
 class BlitManager:
     def __init__(self, fig, animated_artists=()):
         self.canvas = fig.canvas

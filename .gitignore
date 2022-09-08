@@ -1,8 +1,9 @@
 .venv
-__pycache__
 key.txt
 .ipynb_checkpoints
 .DS_Store
+__pycache__
 
 analysis/data/datalogger_fsgp2022_day1
 analysis/data/datalogger_fsgp2022_day2
+
