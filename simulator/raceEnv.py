@@ -34,9 +34,6 @@ class RaceEnv(gym.Env):
 
         self.do_print = do_print
         self.do_render = do_render
-        if(self.do_render):
-            self.render_init()
-
         
 
         self.timestep = 5 #5 second intervals
@@ -70,8 +67,8 @@ class RaceEnv(gym.Env):
             "motor_powers": [[]],
             "array_powers": [[]],
         }
-            
 
+        self.legs_completed_names = []
         self.legs_completed = 0
         self.current_leg = self.legs[0]
         self.leg_index = 0
@@ -94,6 +91,9 @@ class RaceEnv(gym.Env):
         self.next_limit_index = 0
 
         self.reset()
+
+        if(self.do_render):
+            self.render_init()
 
         self.printc(f"Start race at {self.time}")
 
@@ -142,6 +142,7 @@ class RaceEnv(gym.Env):
             "times": [[]],
             "dists": [[]],
             "speeds": [[]],
+            "target_mphs": [[]],
             "energies": [[]],
             "motor_powers": [[]],
             "array_powers": [[]],
@@ -333,8 +334,13 @@ class RaceEnv(gym.Env):
         P_accel = self.car_props['P_accel']
         mg = self.car_props['mass'] * 9.81
 
+        if(dist_change > 1): #protect against zero division
+            sinslope = (alt_change / dist_change)
+        else:
+            sinslope = 0
+
         #can probably be made into a matrix
-        power_ff = speed * (P_drag*(speed - headwind)**2 + P_fric + mg*(alt_change / dist_change))      #power used to keep the avg speed
+        power_ff = speed * (P_drag*(speed - headwind)**2 + P_fric + mg*sinslope)      #power used to keep the avg speed
         power_acc = P_accel*accel*speed                                                                 #power used to accelerate (or decelerate)
         return power_ff + power_acc
 
@@ -360,6 +366,7 @@ class RaceEnv(gym.Env):
         self.log['times'][-1].append(self.time.timestamp())
         self.log['dists'][-1].append(self.leg_progress)
         self.log['speeds'][-1].append(self.speed)
+        self.log['target_mphs'][-1].append(self.get_target_mph())
         self.log['energies'][-1].append(self.energy)
         self.log['motor_powers'][-1].append(self.motor_power)
         self.log['array_powers'][-1].append(self.array_power)
@@ -485,6 +492,7 @@ class RaceEnv(gym.Env):
         if(d_f >= leg['length']):
             self.printc(f"Completed leg: {leg['name']} at {self.time}")
             self.legs_completed += 1
+            self.legs_completed_names.append(leg['name'])
             self.process_leg_finish() #will update leg and self.done if needed
 
 
@@ -541,6 +549,11 @@ class RaceEnv(gym.Env):
         (self.ln_distwindow_l,) = ax_elev.plot((meters2miles(self.distwindow_l), meters2miles(self.distwindow_l)), (self.min_elev, self.max_elev), 'y-')
         (self.ln_distwindow_r,) = ax_elev.plot((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)), (self.min_elev, self.max_elev), 'y-')
         (self.pt_elev,) = ax_elev.plot(0, self.current_leg['altitude'](0), 'ko', markersize=5)
+
+        solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
+        self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
+
+
         ax_elev.legend(loc='lower left')
 
 
@@ -712,6 +725,15 @@ class RaceEnv(gym.Env):
         '''List of base legs or loops that were attempted'''
         return self.log['leg_names']
 
+    def get_legs_completed(self):
+        '''List of base legs or loops that were completed on time'''
+        return self.legs_completed_names
+
     def get_time(self):
         '''Get the current time as a datetime object'''
         return self.time
+
+    def get_average_mph(self):
+        '''Get average mph since the start of the race'''
+        speeds = np.concatenate(self.log['speeds']).flat
+        return np.mean(speeds) * mpersec2mph()
