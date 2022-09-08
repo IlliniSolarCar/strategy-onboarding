@@ -547,8 +547,8 @@ class RaceEnv(gym.Env):
         (self.ln_distwindow_r,) = ax_elev.plot((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)), (self.min_elev, self.max_elev), 'y-')
         (self.pt_elev,) = ax_elev.plot(0, self.current_leg['altitude'](0), 'ko', markersize=5)
 
-        solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
-        self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
+        # solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
+        # self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
 
 
         ax_elev.legend(loc='lower left')
@@ -594,7 +594,7 @@ class RaceEnv(gym.Env):
         self.fig = plt.gcf()
 
         self.bm = BlitManager(self.fig, (
-            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r, self.pts_solar,
+            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r, 
             self.ln_limit, self.ln_speed, self.pt_speed, self.tx,
             self.ln_arraypower,
             self.ln_battery,
