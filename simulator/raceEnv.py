@@ -28,7 +28,7 @@ class RaceEnv(gym.Env):
         route_obj = Route.open(route)
         self.legs = route_obj.leg_list
 
-        self.pause_time = pause_time
+        self.pause_time = max(pause_time, 1e-6)
         self.dist_behind = 3
         self.dist_ahead = 7
 
@@ -91,9 +91,6 @@ class RaceEnv(gym.Env):
         self.next_limit_index = 0
 
         self.reset()
-
-        # if(self.do_render):
-        #     self.render_init()
 
         self.printc(f"Start race at {self.time}")
 
@@ -550,8 +547,8 @@ class RaceEnv(gym.Env):
         (self.ln_distwindow_r,) = ax_elev.plot((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)), (self.min_elev, self.max_elev), 'y-')
         (self.pt_elev,) = ax_elev.plot(0, self.current_leg['altitude'](0), 'ko', markersize=5)
 
-        # solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
-        # self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
+        solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
+        self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
 
 
         ax_elev.legend(loc='lower left')
@@ -597,7 +594,7 @@ class RaceEnv(gym.Env):
         self.fig = plt.gcf()
 
         self.bm = BlitManager(self.fig, (
-            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r,
+            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r, self.pts_solar,
             self.ln_limit, self.ln_speed, self.pt_speed, self.tx,
             self.ln_arraypower,
             self.ln_battery,
@@ -632,14 +629,18 @@ class RaceEnv(gym.Env):
         self.pt_elev.set_xdata(meters2miles(self.leg_progress))
         self.pt_elev.set_ydata(self.current_leg['altitude'](self.leg_progress))
 
+        # dists_leg = np.arange(0, self.current_leg['length'], step=5000)
+        # solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
+        # self.pts_solar['c'] = solars
+        # self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
+
+
         if(self.leg_progress > miles2meters(self.dist_behind)):
             self.distwindow_l = self.leg_progress - miles2meters(self.dist_behind)
             self.distwindow_r = self.leg_progress + miles2meters(self.dist_ahead)
         
         dists_so_far = np.array(self.log['dists'][self.legs_completed])
         speeds_so_far = np.array(self.log['speeds'][self.legs_completed])
-
-        print(self.log['speeds'])
 
         speeds_dists_window, speeds_window = trim_to_range(dists_so_far, speeds_so_far, self.distwindow_l, self.distwindow_r)
         
