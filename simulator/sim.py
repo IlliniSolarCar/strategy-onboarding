@@ -11,7 +11,7 @@ def main():
 
     while True:
         
-        env.set_target_mph(np.random.randint(30, 40))
+        # env.set_target_mph(np.random.randint(30, 40))
         done = env.step()
         
         if done:

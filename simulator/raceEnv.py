@@ -58,15 +58,15 @@ class RaceEnv(gym.Env):
             "try_loop": False,
         }
 
-        self.log = {
-            "leg_names": [],
-            "times": [[]],
-            "dists": [[]],
-            "speeds": [[]],
-            "energies": [[]],
-            "motor_powers": [[]],
-            "array_powers": [[]],
-        }
+        # self.log = {
+        #     "leg_names": [],
+        #     "times": [],
+        #     "dists": [],
+        #     "speeds": [],
+        #     "energies": [],
+        #     "motor_powers": [],
+        #     "array_powers": [],
+        # }
 
         self.legs_completed_names = []
         self.legs_completed = 0
@@ -92,8 +92,8 @@ class RaceEnv(gym.Env):
 
         self.reset()
 
-        if(self.do_render):
-            self.render_init()
+        # if(self.do_render):
+        #     self.render_init()
 
         self.printc(f"Start race at {self.time}")
 
@@ -139,13 +139,13 @@ class RaceEnv(gym.Env):
 
         self.log = {
             "leg_names": [],
-            "times": [[]],
-            "dists": [[]],
-            "speeds": [[]],
-            "target_mphs": [[]],
-            "energies": [[]],
-            "motor_powers": [[]],
-            "array_powers": [[]],
+            "times": [],
+            "dists": [],
+            "speeds": [],
+            "target_mphs": [],
+            "energies": [],
+            "motor_powers": [],
+            "array_powers": [],
         }
 
         self.reset_leg()
@@ -550,8 +550,8 @@ class RaceEnv(gym.Env):
         (self.ln_distwindow_r,) = ax_elev.plot((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)), (self.min_elev, self.max_elev), 'y-')
         (self.pt_elev,) = ax_elev.plot(0, self.current_leg['altitude'](0), 'ko', markersize=5)
 
-        solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
-        self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
+        # solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
+        # self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
 
 
         ax_elev.legend(loc='lower left')
@@ -636,9 +636,11 @@ class RaceEnv(gym.Env):
             self.distwindow_l = self.leg_progress - miles2meters(self.dist_behind)
             self.distwindow_r = self.leg_progress + miles2meters(self.dist_ahead)
         
-
         dists_so_far = np.array(self.log['dists'][self.legs_completed])
         speeds_so_far = np.array(self.log['speeds'][self.legs_completed])
+
+        print(self.log['speeds'])
+
         speeds_dists_window, speeds_window = trim_to_range(dists_so_far, speeds_so_far, self.distwindow_l, self.distwindow_r)
         
         try:
@@ -648,6 +650,8 @@ class RaceEnv(gym.Env):
 
         self.ln_speed.set_xdata(meters2miles(speeds_dists_window-dist_shift))
         self.ln_speed.set_ydata(mpersec2mph(speeds_window))
+
+        # print(self.distwindow_l, self.distwindow_r)
 
         limit_dist_pts, limit_pts = trim_to_range(self.limit_dist_pts, self.limit_pts, self.distwindow_l - miles2meters(1), self.distwindow_r + miles2meters(3))
         self.ln_distwindow_l.set_xdata((meters2miles(self.distwindow_l), meters2miles(self.distwindow_l)))
