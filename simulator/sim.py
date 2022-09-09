@@ -5,13 +5,16 @@ from route.route import Route
 import numpy as np
 
 def main():
-    env = RaceEnv(do_render=False, do_print=False, pause_time=0)
+    env = RaceEnv(do_render=True, do_print=True, pause_time=0)
 
     env.set_try_loop(True)
 
     while True:
         
-        env.set_target_mph(35)
+        
+        # env.set_target_mph(35)
+
+
         done = env.step()
         
         if done:
