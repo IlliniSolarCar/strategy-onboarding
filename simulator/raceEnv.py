@@ -90,7 +90,11 @@ class RaceEnv(gym.Env):
         self.next_limit_dist = 0
         self.next_limit_index = 0
 
+        self.sim_step = 0
+
         self.reset()
+        if(self.do_render):
+            self.render_init()
 
         self.printc(f"Start race at {self.time}")
 
@@ -117,9 +121,6 @@ class RaceEnv(gym.Env):
         for item in self.log:
             if(item != 'leg_names'):
                 self.log[item].append([])
-
-        if(self.do_render):
-            self.render_init()
         
 
     def reset(self):
@@ -346,6 +347,8 @@ class RaceEnv(gym.Env):
         '''Updates the simulation by 1 timestep, by default 5 seconds. Run this in a loop until it
         returns True, meaning the simulation has finished.'''
 
+        self.sim_step += 1
+
         if(self.energy <= 0):
             self.printc("No battery")
             self.done = True
@@ -501,6 +504,9 @@ class RaceEnv(gym.Env):
             self.current_leg = self.legs[self.leg_index]
             self.reset_leg()
 
+            if(self.do_render):
+                self.render_init()
+
         # CHECK IF END OF DAY
         if(self.time > datetime(self.time.year, self.time.month, self.time.day, DRIVE_STOP_HOUR)):
             self.charge(timedelta(hours=CHARGE_STOP_HOUR - DRIVE_STOP_HOUR))
@@ -525,7 +531,8 @@ class RaceEnv(gym.Env):
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
 
-        plt.figure(figsize=(15, 13 * screen_height/screen_width))
+        self.fig = plt.figure(figsize=(15, 13 * screen_height/screen_width))
+
 
         ax_elev = plt.subplot2grid((3, 8), (0, 0), colspan=8)
         ax_speed = plt.subplot2grid((3, 8), (1, 0), colspan=7, rowspan=2)
@@ -547,9 +554,16 @@ class RaceEnv(gym.Env):
         (self.ln_distwindow_r,) = ax_elev.plot((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)), (self.min_elev, self.max_elev), 'y-')
         (self.pt_elev,) = ax_elev.plot(0, self.current_leg['altitude'](0), 'ko', markersize=5)
 
-        # solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
-        # self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
+        self.weather_dists = dists_leg[::100]
+        n_dists = len(self.weather_dists)
 
+        solars = self.current_leg['sun_flat'](self.weather_dists, self.time.timestamp())
+        colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=NIGHT_GRAY, max_color=SUN_YELLOW)
+        self.pts_solar = ax_elev.scatter(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*self.max_elev, c=colors)
+
+        winds = self.current_leg['headwind'](self.weather_dists, self.time.timestamp())
+        
+        self.pts_wind = ax_elev.quiver(self.weather_dists * meters2miles(), np.ones(n_dists)*self.max_elev, winds, np.zeros(n_dists), scale=2, scale_units='x')
 
         ax_elev.legend(loc='lower left')
 
@@ -583,7 +597,7 @@ class RaceEnv(gym.Env):
         #battery axes
         ax_battery.set_title("Battery Energy (Wh)")
         ax_battery.set_xlim(0, 3600)
-        ax_battery.set_ylim(0, self.car_props['max_watthours'])
+        ax_battery.set_ylim(0, self.car_props['max_watthours']*1.05)
         ax_battery.get_xaxis().set_visible(False)
         (self.ln_battery,) = ax_battery.plot(0, self.energy, label='Battery energy', c='green')
 
@@ -591,16 +605,15 @@ class RaceEnv(gym.Env):
         self.tx = ax_speed.text(5, self.car_props['max_mph']-5, f"{self.current_leg['name']}", fontsize=20, ha='center')
 
         plt.tight_layout()
-        self.fig = plt.gcf()
 
         self.bm = BlitManager(self.fig, (
-            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r, 
+            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r, self.pts_solar, 
             self.ln_limit, self.ln_speed, self.pt_speed, self.tx,
             self.ln_arraypower,
             self.ln_battery,
         ))
 
-        plt.show(block=False)
+        # plt.show(block=False)
         plt.pause(.01) #wait a bit for things to be drawn and cached
         self.bm.update()
 
@@ -625,14 +638,16 @@ class RaceEnv(gym.Env):
             plt.pause(1)
         self.tx.set_text(f"{self.time.strftime('%m/%d/%Y, %H:%M')}")
 
+
     def render(self):
         self.pt_elev.set_xdata(meters2miles(self.leg_progress))
         self.pt_elev.set_ydata(self.current_leg['altitude'](self.leg_progress))
 
-        # dists_leg = np.arange(0, self.current_leg['length'], step=5000)
-        # solars = self.current_leg['sun_flat'](dists_leg, self.time.timestamp())
-        # self.pts_solar['c'] = solars
-        # self.pts_solar = ax_elev.scatter(dists_leg * meters2miles(), np.ones_like(dists_leg)*self.max_elev-10, c=solars)
+
+        if(self.sim_step % 50 ==0):
+            solars = self.current_leg['sun_flat'](self.weather_dists, self.time.timestamp())
+            colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=NIGHT_GRAY, max_color=SUN_YELLOW)
+            self.pts_solar.set_facecolors(colors)
 
 
         if(self.leg_progress > miles2meters(self.dist_behind)):
@@ -652,8 +667,6 @@ class RaceEnv(gym.Env):
         self.ln_speed.set_xdata(meters2miles(speeds_dists_window-dist_shift))
         self.ln_speed.set_ydata(mpersec2mph(speeds_window))
 
-        # print(self.distwindow_l, self.distwindow_r)
-
         limit_dist_pts, limit_pts = trim_to_range(self.limit_dist_pts, self.limit_pts, self.distwindow_l - miles2meters(1), self.distwindow_r + miles2meters(3))
         self.ln_distwindow_l.set_xdata((meters2miles(self.distwindow_l), meters2miles(self.distwindow_l)))
         self.ln_distwindow_r.set_xdata((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)))
@@ -664,22 +677,23 @@ class RaceEnv(gym.Env):
         self.pt_speed.set_xdata(meters2miles(self.leg_progress-dist_shift))
         self.pt_speed.set_ydata(mpersec2mph(self.speed))
 
-        times_so_far = np.array(self.log['times'][self.legs_completed])
-        arraypowers_so_far = np.array(self.log['array_powers'][self.legs_completed])
-        times_window, arraypowers_window = trim_to_range(times_so_far, arraypowers_so_far, self.time.timestamp()-3600, self.time.timestamp())
-        try:
-            time_shift = times_window[0]
-        except:
-            time_shift = 0
-        self.ln_arraypower.set_xdata((times_window-time_shift))
-        self.ln_arraypower.set_ydata(arraypowers_window)
+        if(self.sim_step % 12 ==0):
+            times_so_far = np.array(self.log['times'][self.legs_completed])[::12]
+            arraypowers_so_far = np.array(self.log['array_powers'][self.legs_completed])[::12]
+            times_window, arraypowers_window = trim_to_range(times_so_far, arraypowers_so_far, self.time.timestamp()-3600, self.time.timestamp())
+            try:
+                time_shift = times_window[0]
+            except:
+                time_shift = 0
+            self.ln_arraypower.set_xdata((times_window-time_shift))
+            self.ln_arraypower.set_ydata(arraypowers_window)
 
-        battery_so_far = np.array(self.log['energies'][self.legs_completed])/3600
-        times_window, battery_window = trim_to_range(times_so_far, battery_so_far, self.time.timestamp()-3600, self.time.timestamp())
-        self.ln_battery.set_xdata((times_window-time_shift))
-        self.ln_battery.set_ydata(battery_window)
+            battery_so_far = 1/3600. * np.array(self.log['energies'][self.legs_completed])[::12]
+            times_window, battery_window = trim_to_range(times_so_far, battery_so_far, self.time.timestamp()-3600, self.time.timestamp())
+            self.ln_battery.set_xdata((times_window-time_shift))
+            self.ln_battery.set_ydata(battery_window)
 
-        self.tx.set_text(f"{self.time.strftime('%m/%d/%Y, %H:%M')}")
+            self.tx.set_text(f"{self.time.strftime('%m/%d/%Y, %H:%M')}")
 
         self.bm.update()
         plt.pause(self.pause_time)
@@ -737,6 +751,9 @@ class RaceEnv(gym.Env):
     def get_time(self):
         '''Get the current time as a datetime object'''
         return self.time
+
+    # def get_leg_dist(self):
+    #     return self.leg_progress
 
     def get_average_mph(self):
         '''Get average mph since the start of the race'''

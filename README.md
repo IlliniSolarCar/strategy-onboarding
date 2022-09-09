@@ -19,5 +19,7 @@ How to get started:
 
 
 
-Common problem
+Common problems:
+* module not found: didn't activate virutal environemtn
+* 
 

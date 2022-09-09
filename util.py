@@ -6,6 +6,7 @@ import numpy as np
 from numpy import sin, cos, pi
 import math
 import pandas as pd
+from matplotlib.colors import Colormap, Normalize
 
 dir = os.path.dirname(__file__)
 
@@ -98,9 +99,27 @@ def trim_to_range(x, y, left, right):
     y_trim = y[l:r]
     return x_trim, y_trim
 
+SUN_YELLOW = np.array([255, 224, 0]) / 255
+NIGHT_GRAY = np.array([0, 0, 0]) / 255
+def interp_color(vals, min_val, max_val, min_color, max_color):
+    '''serves as a colormap between 2 colors given a list/array of scalars'''
+    vals = np.array(vals)
+    diff = np.array(max_color) - np.array(min_color)
+    vals_norm = (vals - min_val)/(max_val - min_val)
+    return np.outer(vals_norm, diff) + min_color
+
+# sun_cmap = Colormap('inferno')
+# def solar_color(solars):
+#     solars = Normalize(min(solars), max(solars))(solars)
+#     # solars = np.array(solars)
+#     return sun_cmap(solars)
+
+
 
 
 #testing
 if __name__ == "__main__":
-    x = ffill([0, 1, 2, 3, 4], [0.1, 0.2, 0.3, 0.4, 0.5])
-    print(x)
+    x = (1, 1, 0)
+    y = (2, 0, 1)
+    c = interp_color([1, 2, 3, 4, 5 , 6], 1, 6, x, y)
+    print(c)
