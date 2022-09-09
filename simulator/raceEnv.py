@@ -91,6 +91,7 @@ class RaceEnv(gym.Env):
         self.next_limit_index = 0
 
         self.sim_step = 0
+        self.transition = False
 
         self.reset()
         if(self.do_render):
@@ -147,9 +148,6 @@ class RaceEnv(gym.Env):
         }
 
         self.reset_leg()
-
-
-
 
 
     def charge(self, time_length:timedelta):
@@ -524,7 +522,11 @@ class RaceEnv(gym.Env):
 
 
     def render_init(self):
-        # plt.close('all')
+        self.transition = True
+        plt.close('all')
+        self.transition = False
+
+        leg = self.current_leg
 
         import tkinter as tk
         root = tk.Tk()
@@ -532,7 +534,6 @@ class RaceEnv(gym.Env):
         screen_height = root.winfo_screenheight()
 
         self.fig = plt.figure(figsize=(15, 13 * screen_height/screen_width))
-
 
         ax_elev = plt.subplot2grid((3, 8), (0, 0), colspan=8)
         ax_speed = plt.subplot2grid((3, 8), (1, 0), colspan=7, rowspan=2)
@@ -545,25 +546,25 @@ class RaceEnv(gym.Env):
 
         #elevation axes
         ax_elev.set_ylabel("Elevation (meters)")
-        dists_leg = np.arange(0, self.current_leg['length'], step=30)
+        dists_leg = np.arange(0, leg['length'], step=30)
         elevs = self.current_leg['altitude'](dists_leg)
         self.min_elev = min(elevs)
         self.max_elev = max(elevs)
         (self.ln_elev,) = ax_elev.plot(dists_leg * meters2miles(), elevs, '-', label="elevation")
         (self.ln_distwindow_l,) = ax_elev.plot((meters2miles(self.distwindow_l), meters2miles(self.distwindow_l)), (self.min_elev, self.max_elev), 'y-')
         (self.ln_distwindow_r,) = ax_elev.plot((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)), (self.min_elev, self.max_elev), 'y-')
-        (self.pt_elev,) = ax_elev.plot(0, self.current_leg['altitude'](0), 'ko', markersize=5)
+        (self.pt_elev,) = ax_elev.plot(0, leg['altitude'](0), 'ko', markersize=5)
 
-        self.weather_dists = dists_leg[::100]
+        weather_step = round(leg['length'] / 100)
+        self.weather_dists = np.arange(0, leg['length'], step=weather_step)
         n_dists = len(self.weather_dists)
 
-        solars = self.current_leg['sun_flat'](self.weather_dists, self.time.timestamp())
+        solars = leg['sun_flat'](self.weather_dists, self.time.timestamp())
         colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=NIGHT_GRAY, max_color=SUN_YELLOW)
-        self.pts_solar = ax_elev.scatter(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*self.max_elev, c=colors)
+        self.pts_solar = ax_elev.scatter(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*self.max_elev*1.02, c=colors)
 
         winds = self.current_leg['headwind'](self.weather_dists, self.time.timestamp())
-        
-        self.pts_wind = ax_elev.quiver(self.weather_dists * meters2miles(), np.ones(n_dists)*self.max_elev, winds, np.zeros(n_dists), scale=2, scale_units='x')
+        self.pts_wind = ax_elev.quiver(self.weather_dists * meters2miles(), np.ones(n_dists)*self.max_elev, winds, np.zeros(n_dists), headwidth=2, minlength=0, scale=200, scale_units='width')
 
         ax_elev.legend(loc='lower left')
 
@@ -572,7 +573,7 @@ class RaceEnv(gym.Env):
         ax_speed.set_ylabel("Speed (mph)")
         ax_speed.set_xlabel("Distance (miles)")
         ax_speed.set_xlim(0, meters2miles(self.distwindow_r))
-        ax_speed.set_ylim(0, self.car_props['max_mph'])
+        ax_speed.set_ylim(0, self.car_props['max_mph']*1.1)
 
         limit_dist_pts, limit_pts = self.current_leg['speedlimit']
         self.limit_dist_pts, self.limit_pts = ffill(limit_dist_pts, limit_pts)
@@ -601,13 +602,17 @@ class RaceEnv(gym.Env):
         ax_battery.get_xaxis().set_visible(False)
         (self.ln_battery,) = ax_battery.plot(0, self.energy, label='Battery energy', c='green')
 
-        #countdown and time text
-        self.tx = ax_speed.text(5, self.car_props['max_mph']-5, f"{self.current_leg['name']}", fontsize=20, ha='center')
+        #Text
+        leg = self.current_leg
+        closetime = leg['close'].strftime('%m/%d/%Y, %H:%M')
+        ax_speed.set_title(f"{leg['name']}. Finish by {closetime}")
+
+        self.tx = ax_speed.text(5, self.car_props['max_mph']*1.1-5, f"READY", fontsize=20, ha='center')
 
         plt.tight_layout()
 
         self.bm = BlitManager(self.fig, (
-            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r, self.pts_solar, 
+            self.pt_elev, self.ln_distwindow_l, self.ln_distwindow_r, self.pts_solar, self.pts_wind,
             self.ln_limit, self.ln_speed, self.pt_speed, self.tx,
             self.ln_arraypower,
             self.ln_battery,
@@ -619,7 +624,8 @@ class RaceEnv(gym.Env):
 
         #closing the first window deletes the second window
         def on_close(event):
-            sys.exit()
+            if not self.transition:
+                sys.exit()
         self.fig.canvas.mpl_connect('close_event', on_close)
 
         def press(event):
@@ -649,6 +655,8 @@ class RaceEnv(gym.Env):
             colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=NIGHT_GRAY, max_color=SUN_YELLOW)
             self.pts_solar.set_facecolors(colors)
 
+            winds = self.current_leg['headwind'](self.weather_dists, self.time.timestamp())
+            self.pts_wind.set_UVC(U=winds, V=np.zeros_like(winds))
 
         if(self.leg_progress > miles2meters(self.dist_behind)):
             self.distwindow_l = self.leg_progress - miles2meters(self.dist_behind)
