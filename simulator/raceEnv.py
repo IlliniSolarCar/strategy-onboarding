@@ -1,6 +1,7 @@
 from datetime import timedelta
 from math import isnan
 import time
+from tkinter import ROUND
 import gym
 from gym import spaces
 import numpy as np
@@ -20,7 +21,7 @@ from util import *
 class RaceEnv(gym.Env):
     '''Simulation of ASC using an OpenAI gym environment. Call .step(action) to update simulation'''
 
-    def __init__(self, do_render=True, do_print=True, car="brizo_fsgp22", route="ind-gra_2022,7,9-10_5km_openmeteo", steps_per_render=1):
+    def __init__(self, do_render=True, do_print=True, steps_per_render=1, load=None, save=True, save_name='', car="brizo_fsgp22", route="ind-gra_2022,7,9-10_5km_openmeteo"):
 
         cars_dir = os.path.dirname(__file__) + '/../cars'
         with open(f"{cars_dir}/{car}.json", 'r') as props_json:
@@ -29,6 +30,16 @@ class RaceEnv(gym.Env):
         route_obj = Route.open(route)
         self.legs = route_obj.leg_list
 
+        if(load is not None):
+            self.load = pd.read_csv(load)
+        else:
+            self.load = None
+
+        self.save = save
+        self.save_name = save_name
+
+        self.is_keyboard = False
+
         self.pause_time = 1e-6
         self.dist_behind = 3
         self.dist_ahead = 7
@@ -36,7 +47,6 @@ class RaceEnv(gym.Env):
         self.do_print = do_print
         self.do_render = do_render
         
-
         self.timestep = 5 #5 second intervals
 
         self.observation_spaces= spaces.Dict({
@@ -58,16 +68,6 @@ class RaceEnv(gym.Env):
             "deceleration": self.car_props['max_decel'],
             "try_loop": False,
         }
-
-        # self.log = {
-        #     "leg_names": [],
-        #     "times": [],
-        #     "dists": [],
-        #     "speeds": [],
-        #     "energies": [],
-        #     "motor_powers": [],
-        #     "array_powers": [],
-        # }
 
         self.legs_completed_names = []
         self.legs_completed = 0
@@ -105,7 +105,7 @@ class RaceEnv(gym.Env):
 
     def printc(self, message):
         if(self.do_print):
-            print(message)
+            print(f"(RaceEnv) {message}")
     
 
     def reset_leg(self):
@@ -145,6 +145,9 @@ class RaceEnv(gym.Env):
             "dists": [],
             "speeds": [],
             "target_mphs": [],
+            "accelerations": [],
+            "decelerations": [],
+            "try_loops": [],
             "energies": [],
             "motor_powers": [],
             "array_powers": [],
@@ -373,11 +376,6 @@ class RaceEnv(gym.Env):
 
         self.sim_step += 1
 
-        if(self.energy <= 0):
-            self.printc("No battery")
-            self.done = True
-            return self.done
-
         leg = self.legs[self.leg_index]
         self.current_leg = leg
 
@@ -385,16 +383,17 @@ class RaceEnv(gym.Env):
         dt = self.timestep
         d_0 = self.leg_progress     #meters completed of the current leg
         w = leg['headwind'](d_0, self.time.timestamp())
-        if(isnan(w)): w= 0
+        if(isnan(w)): w = 0
 
         self.log['times'][-1].append(self.time.timestamp())
         self.log['dists'][-1].append(self.leg_progress)
         self.log['speeds'][-1].append(self.speed)
         self.log['target_mphs'][-1].append(self.get_target_mph())
+        self.log['accelerations'][-1].append(self.get_acceleration())
+        self.log['decelerations'][-1].append(self.get_deceleration())
+        self.log['try_loops'][-1].append(self.get_try_loop())
         self.log['energies'][-1].append(self.energy)
-
         self.log['motor_powers'][-1].append(self.motor_power)
-
         self.log['array_powers'][-1].append(self.array_power)
 
         P_max_out = self.car_props['max_motor_output_power'] #max motor drive power (positive)
@@ -460,7 +459,7 @@ class RaceEnv(gym.Env):
                 else:
                     self.next_stop_dist = float('inf')
 
-                return self.done
+                return False
 
 
         # CALCULATE ACTUAL ACCELERATION
@@ -512,8 +511,11 @@ class RaceEnv(gym.Env):
             
         self.time += timedelta(seconds=dt)
 
-
-
+        if(self.energy <= 0):
+            self.printc("No battery, ending simulation")
+            self.end_race()
+            return True
+    
         # CHECK IF COMPLETED CURRENT LEG
         if(d_f >= leg['length']):
             self.printc(f"Completed leg: {leg['name']} at {self.time}")
@@ -521,11 +523,10 @@ class RaceEnv(gym.Env):
             self.legs_completed_names.append(leg['name'])
             self.process_leg_finish() #will update leg and self.done if needed
 
-
             if(self.done):
-                self.printc("Done simulating")
-                plt.close('all')
-                return self.done
+                self.printc("Completed race, ending simulation.")
+                self.end_race()
+                return True
 
             self.current_leg = self.legs[self.leg_index]
             self.reset_leg()
@@ -535,17 +536,44 @@ class RaceEnv(gym.Env):
 
         # CHECK IF END OF DAY
         if(self.time > datetime(self.time.year, self.time.month, self.time.day, DRIVE_STOP_HOUR)):
+
+            if(self.time.day >= self.legs[-1]['close'].day):
+                self.printc("Past close time of last leg, ending simulation.")
+                self.end_race()
+                return True
+
+            before_charge = self.energy
             self.charge(timedelta(hours=CHARGE_STOP_HOUR - DRIVE_STOP_HOUR))
             self.time = datetime(self.time.year, self.time.month, self.time.day+1, CHARGE_START_HOUR)
             self.charge(timedelta(hours=DRIVE_START_HOUR - CHARGE_START_HOUR))
-            self.printc("End of day")
+            after_charge = self.energy
+            self.printc(f"End of day, charged {round((after_charge - before_charge)/3600)}W")
 
 
         if(self.do_render and self.sim_step % self.steps_per_render == 0):
             self.render()
 
-        return self.done
+        return False
 
+    def end_race(self):
+        if(self.save):
+            df = pd.DataFrame.from_dict({
+                'target_mph': flatten_list(self.log['target_mphs']),
+                'acceleration': flatten_list(self.log['accelerations']),
+                'deceleration': flatten_list(self.log['decelerations']),
+                'try_loop': flatten_list(self.log['try_loops']),
+                'is_keyboard': self.is_keyboard
+            })
+            miles = round(self.miles_earned)
+            energy = round(self.energy/3600.)
+
+            if(self.save_name is None or self.save_name == ''):
+                filename = f"{self.save_name}{miles}mi_{energy}W"
+            else:
+                filename = self.save_name
+            df.to_csv(f"{dir}/simulator/logs/{filename}.csv", index=False)
+
+        self.done = True
 
 
 
@@ -613,10 +641,11 @@ class RaceEnv(gym.Env):
 
         ax_speed.legend(loc='upper left')
 
-        self.hist_len = 100
-        self.motor_powers_disp = np.full(self.hist_len*2, 0)
-        self.array_powers_disp = np.full(self.hist_len, 0)
-        self.battery_disp = np.full(self.hist_len, self.energy/3600)
+        self.power_hist = 100
+        self.battery_hist = 1000
+        self.motor_powers_disp = np.full(self.power_hist*2, 0)
+        self.array_powers_disp = np.full(self.power_hist, 0)
+        self.battery_disp = np.full(self.battery_hist, self.energy/3600)
 
         #power axes
         ax_power.set_title("Array power (W)")
@@ -670,12 +699,15 @@ class RaceEnv(gym.Env):
 
         def press(event):
             if(event.key == 'up'):
+                self.is_keyboard = True
                 self.action['target_mph'] = min(self.action['target_mph']+2, self.car_props['max_mph'])
                 update_tx()
             if(event.key == 'down'):
+                self.is_keyboard = True
                 self.action['target_mph'] = max(self.action['target_mph']-2, 5)
                 update_tx()
             if(event.key == 'enter'):
+                self.is_keyboard = True
                 self.action['try_loop'] = not self.action['try_loop']
                 self.try_loop = self.action['try_loop']
                 update_tx()
@@ -743,16 +775,17 @@ class RaceEnv(gym.Env):
         disp_step = 12
         if(self.sim_step % disp_step == 0):
 
-            power_times = np.linspace(0, 3600, self.hist_len)
+            power_times = np.linspace(0, 3600, self.power_hist)
 
-            motor_avg = moving_average(self.motor_powers_disp, self.hist_len)[-self.hist_len:]
+            motor_avg = moving_average(self.motor_powers_disp, self.power_hist)[-self.power_hist:]
             self.ln_motorpower.set_xdata(power_times)
             self.ln_motorpower.set_ydata(motor_avg)
 
             self.ln_arraypower.set_xdata(power_times)
             self.ln_arraypower.set_ydata(self.array_powers_disp)
 
-            self.ln_battery.set_xdata(power_times)
+            battery_times = np.linspace(0, 3600, self.battery_hist)
+            self.ln_battery.set_xdata(battery_times)
             self.ln_battery.set_ydata(self.battery_disp)
 
             self.tx_time.set_text(self.time.strftime('%m/%d/%Y, %H:%M'))
@@ -822,9 +855,19 @@ class RaceEnv(gym.Env):
 
     def get_average_mph(self):
         '''Get average mph since the start of the race'''
-        speeds = np.concatenate(self.log['speeds']).flat
+        speeds = flatten_list(self.log['speeds'])
         return np.mean(speeds) * mpersec2mph()
+
+    def get_stddev_mph(self):
+        '''Get average mph since the start of the race'''
+        speeds = flatten_list(self.log['speeds'])
+        return np.std(speeds) * mpersec2mph()
 
     def get_current_leg(self):
         '''Get the base or loop that the car is currently driving. Is a dict of a various route data'''
         return self.current_leg
+
+    def get_log(self):
+        '''Get the log dict, which contains the speed, distance, leg names, motor power, array power, etc. 
+        at each time step.'''
+        return self.log

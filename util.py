@@ -117,6 +117,10 @@ def interp_color(vals, min_val, max_val, min_color, max_color):
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
 
+def flatten_list(x):
+    return np.concatenate(x).flat
+
+
 
 
 #testing
