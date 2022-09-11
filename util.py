@@ -114,6 +114,8 @@ def interp_color(vals, min_val, max_val, min_color, max_color):
 #     # solars = np.array(solars)
 #     return sun_cmap(solars)
 
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), 'valid') / w
 
 
 

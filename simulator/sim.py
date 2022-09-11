@@ -5,9 +5,7 @@ from route.route import Route
 import numpy as np
 
 def main():
-    env = RaceEnv(do_render=True, do_print=True, pause_time=0)
-
-    env.set_try_loop(True)
+    env = RaceEnv(do_render=True, do_print=True, steps_per_render=3)
 
     while True:
         
