@@ -1,0 +1,1 @@
+youtube-dl -o '%(playlist)s/%(playlist_index)s - %(title)s.%(ext)s' 'https://www.youtube.com/playlist?list=PL6uC-XGZC7X7nu1ycW1YGbl-wErl027uc' --no-check-certificate
