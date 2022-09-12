@@ -155,6 +155,7 @@ class RaceEnv(gym.Env):
         self.leg_index = 0
         self.current_leg = self.legs[0]
         self.legs_completed = 0
+        self.legs_completed_names = []
         self.time = self.legs[0]['start']
         self.energy = self.car_props['max_watthours']*3600
         self.miles_earned = 0
@@ -457,7 +458,7 @@ class RaceEnv(gym.Env):
 
             a_acc = float(action['acceleration'])
             a_dec = float(action['deceleration'])
-            v_t = float(action['target_mph']) * mph2mpersec()
+            v_t = round(action['target_mph']) * mph2mpersec()
             self.try_loop = action['try_loop']
         else:
             a_acc = float(self.action['acceleration'])
@@ -862,6 +863,9 @@ class RaceEnv(gym.Env):
     def set_target_mph(self, mph:float):
         '''Simulated car will try to reach this speed. Might not always reach this because of 
         motor limits, speed limits, stopsigns/stoplights, or no energy left.'''
+        min_mph = self.car_props['min_mph']
+        max_mph = self.car_props['max_mph']
+        assert mph >= min_mph and mph <= max_mph, f"Target speed must be between {min_mph} mph and {max_mph} mph"
         self.action['target_mph'] = mph
 
     def get_target_mph(self):
@@ -870,6 +874,7 @@ class RaceEnv(gym.Env):
     def set_acceleration(self, acc:float):
         '''Simulated car will use this acceleration when current speed is less than the target
         speed. Measured in meters per second per second and should be positive. Typically 0.5 m/s^2'''
+        assert acc > 0, "Acceleration must be positive"
         self.action['acceleration'] = acc
 
     def get_acceleration(self):
@@ -878,6 +883,7 @@ class RaceEnv(gym.Env):
     def set_deceleration(self, dec:float):
         '''Simulated car will use this deceleration when current speed is less than the target
         speed. Measured in meters per second per second and should be negative. Typically -0.5 m/s^2'''
+        assert dec > 0, "Deceleration must be negative"
         self.action['deceleration'] = dec
 
     def get_deceleration(self):
