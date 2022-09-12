@@ -258,8 +258,8 @@ class RaceEnv(gym.Env):
                     return
 
             else: #checkpoint closed, need to move onto next base leg. To get to this point self.time is the close time.
-                if(leg['type']=='loop'):
-                    self.printc(f"Did not arrive before close: {leg['name']}")
+                # if(leg['type']=='loop'):
+                #     self.printc(f"Did not arrive before close: {leg['name']}")
 
                 if(next_leg['type']=='loop'):
                     self.printc('Next leg is a loop, skipping to the base leg after that')
