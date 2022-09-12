@@ -23,7 +23,7 @@ def main():
         
         '''Preprogrammed input: Uncomment the following line to make the car drive at 35mph for the first leg of the race, 
         then 45mph for the rest. Setters also exist for acceleration and deceleration.'''
-        # if(env.get_leg_index == 0):
+        # if(env.get_leg_index() == 0):
         #     env.set_target_mph(35)
         # else:
         #     env.set_target_mph(45)
