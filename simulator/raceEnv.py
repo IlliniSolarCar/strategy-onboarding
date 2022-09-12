@@ -1,5 +1,6 @@
 from datetime import timedelta
 from math import isnan
+from re import L
 import time
 from tkinter import ROUND
 import gym
@@ -29,12 +30,6 @@ class RaceEnv(gym.Env):
         
         route_obj = Route.open(route)
         self.legs = route_obj.leg_list
-
-        if(load is not None):
-            self.load = pd.read_csv(load)
-            print(self.load)
-        else:
-            self.load = None
 
         self.save = save
         self.save_name = save_name
@@ -69,6 +64,14 @@ class RaceEnv(gym.Env):
             "deceleration": self.car_props['max_decel'],
             "try_loop": False,
         }
+
+        if(load is not None):
+            self.load_name = load
+            file_path = f"{dir}/simulator/logs/{load}"
+            self.load = pd.read_csv(file_path)
+            self.printc(f"Loaded input from file: {file_path}")
+        else:
+            self.load = None
 
         self.legs_completed_names = []
         self.legs_completed = 0
@@ -371,6 +374,25 @@ class RaceEnv(gym.Env):
         '''Updates the simulation by 1 timestep, by default 5 seconds. Run this in a loop until it
         returns True, meaning the simulation has finished.'''
 
+        if(self.load is not None):
+            if(self.sim_step < len(self.load)):
+                self.action = {
+                    'target_mph': self.load['target_mph'][self.sim_step],
+                    'acceleration': self.load['acceleration'][self.sim_step],
+                    'deceleration': self.load['deceleration'][self.sim_step],
+                    'try_loop': self.load['try_loop'][self.sim_step],
+                }
+            else:
+                self.printc("Length of loaded inputs aren't long enough to complete race. Extending last avaliable input.")
+                last = len(self.load) - 1
+                self.action = {
+                    'target_mph': self.load['target_mph'][last],
+                    'acceleration': self.load['acceleration'][last],
+                    'deceleration': self.load['deceleration'][last],
+                    'try_loop': self.load['try_loop'][last],
+                }
+
+
         if(self.pause):
             plt.pause(0.5)
             return False #not done
@@ -672,6 +694,7 @@ class RaceEnv(gym.Env):
         self.tx_time = ax_speed.text(5, self.car_props['max_mph']*1.05, f"{self.time.strftime('%m/%d/%Y, %H:%M')}", fontsize=15, ha='center', va='top')
         self.tx_input = ax_speed.text(5, 0, "", fontsize=15, ha='center', va='bottom')
 
+
         plt.tight_layout()
 
         self.bm = BlitManager(self.fig, (
@@ -684,6 +707,7 @@ class RaceEnv(gym.Env):
         #closing the first window deletes the second window
         def on_close(event):
             if not self.transition:
+                self.printc("Window closed, ending simulation early.")
                 sys.exit()
         self.fig.canvas.mpl_connect('close_event', on_close)
 
@@ -693,25 +717,30 @@ class RaceEnv(gym.Env):
                     pause_str = "Press [P] to unpause"
                 else:
                     pause_str = "Press [P] to pause"
-                action_str = f"Target [Arrow keys]: {self.action['target_mph']}mph  \n Try loop [Enter]: {self.action['try_loop']}"
+
+                if(self.load is not None):
+                    action_str = f"Loaded input from file: {self.load_name}"
+                else:
+                    action_str = f"Target [Arrow keys]: {self.action['target_mph']}mph  \n Try loop [Enter]: {self.action['try_loop']}"
                 next_leg_str = f"Upcoming leg: {self.get_next_leg()}"
                 self.tx_input.set_text(f"{pause_str}\n{action_str}\n{next_leg_str}")
 
 
         def press(event):
-            if(event.key == 'up'):
-                self.is_keyboard = True
-                self.action['target_mph'] = min(self.action['target_mph']+2, self.car_props['max_mph'])
-                update_tx()
-            if(event.key == 'down'):
-                self.is_keyboard = True
-                self.action['target_mph'] = max(self.action['target_mph']-2, 5)
-                update_tx()
-            if(event.key == 'enter'):
-                self.is_keyboard = True
-                self.action['try_loop'] = not self.action['try_loop']
-                self.try_loop = self.action['try_loop']
-                update_tx()
+            if(self.load is None):
+                if(event.key == 'up'):
+                    self.is_keyboard = True
+                    self.action['target_mph'] = min(self.action['target_mph']+2, self.car_props['max_mph'])
+                    update_tx()
+                if(event.key == 'down'):
+                    self.is_keyboard = True
+                    self.action['target_mph'] = max(self.action['target_mph']-2, 5)
+                    update_tx()
+                if(event.key == 'enter'):
+                    self.is_keyboard = True
+                    self.action['try_loop'] = not self.action['try_loop']
+                    self.try_loop = self.action['try_loop']
+                    update_tx()
             if(event.key == 'p'):
                 self.pause = not self.pause
                 update_tx()
