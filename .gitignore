@@ -4,6 +4,8 @@ key.txt
 .DS_Store
 __pycache__
 
+simulator/logs/*.csv
+
 analysis/data/datalogger_fsgp2022_day1
 analysis/data/datalogger_fsgp2022_day2
 

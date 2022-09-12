@@ -32,6 +32,7 @@ class RaceEnv(gym.Env):
 
         if(load is not None):
             self.load = pd.read_csv(load)
+            print(self.load)
         else:
             self.load = None
 
@@ -556,7 +557,7 @@ class RaceEnv(gym.Env):
         return False
 
     def end_race(self):
-        if(self.save):
+        if(self.save and self.load is None):
             df = pd.DataFrame.from_dict({
                 'target_mph': flatten_list(self.log['target_mphs']),
                 'acceleration': flatten_list(self.log['accelerations']),
