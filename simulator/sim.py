@@ -17,16 +17,16 @@ Tip: Some functions like RaceEnv() and set_target_mph() will display more inform
 
 
 def main():
-    env = RaceEnv(load=None, save=True, do_render=False, do_print=True)
+    env = RaceEnv(load='533mi_2440W', save=True, do_render=True, do_print=True)
 
     while True:
         
         '''Preprogrammed input: Uncomment the following line to make the car drive at 35mph for the first leg of the race, 
         then 45mph for the rest. Setters also exist for acceleration and deceleration.'''
-        if(env.get_leg_index() == 0):
-            env.set_target_mph(40)
+        if(env.get_leg_index() < 2):
+            env.set_target_mph(43)
         else:
-            env.set_target_mph(55)
+            env.set_target_mph(45)
 
         '''Preprogrammed input: Uncomment the following line to make the car attempt any loops it encounters. This might not
         always be a good idea because loops only count if finished on time. No partial credit means time and energy can be wasted
