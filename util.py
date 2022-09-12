@@ -99,6 +99,7 @@ def trim_to_range(x, y, left, right):
     y_trim = y[l:r]
     return x_trim, y_trim
 
+SUN_RED = np.array([227, 102, 42]) / 255
 SUN_YELLOW = np.array([255, 224, 0]) / 255
 NIGHT_GRAY = np.array([0, 0, 0]) / 255
 def interp_color(vals, min_val, max_val, min_color, max_color):

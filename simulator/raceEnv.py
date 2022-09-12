@@ -20,9 +20,22 @@ from util import *
 
 
 class RaceEnv(gym.Env):
-    '''Simulation of ASC using an OpenAI gym environment. Call .step(action) to update simulation'''
+    '''Simulation of ASC using an OpenAI gym environment. Call .step(action) to update simulation.
+    Inputs can be entered in 3 ways: from a keyboard using the render window, from the program by calling .set functions, and from previously loaded
+    inputs by specifying a .csv file.
+       
+        load: string of the name of the .csv file to load inputs from. If not filled, inputs will come from calling set functions or the keyboard.
+        save: boolean of whether to save the simulation into a .csv file to be loaded and rerun later.
+        save_name: string to name the saved .csv file. If left empty, name is auto generated.
+        do_render: boolean whether to display the animated graphs
+        do_print: boolean of whether to print progress reports along the race
+        car: name of the car to simulate. Cars are stored as .json in the cars/ folder.
+        route: name of the route to simulate. Routes are stored as .route in the route/save_routes folder.
 
-    def __init__(self, do_render=True, do_print=True, steps_per_render=1, load=None, save=True, save_name='', car="brizo_fsgp22", route="ind-gra_2022,7,9-10_5km_openmeteo"):
+        Note: do not use file extensions (eg .csv) when specifying file names. They will be added automatically.
+    '''
+
+    def __init__(self, load=None, save=True, save_name='', do_render=True, do_print=True, car="brizo_fsgp22", route="ind-gra_2022,7,9-10_5km_openmeteo"):
 
         cars_dir = os.path.dirname(__file__) + '/../cars'
         with open(f"{cars_dir}/{car}.json", 'r') as props_json:
@@ -67,8 +80,11 @@ class RaceEnv(gym.Env):
 
         if(load is not None):
             self.load_name = load
-            file_path = f"{dir}/simulator/logs/{load}"
-            self.load = pd.read_csv(file_path)
+            file_path = f"{dir}/simulator/logs/{load}.csv"
+            try:
+                self.load = pd.read_csv(file_path)
+            except:
+                raise FileNotFoundError(file_path)
             self.printc(f"Loaded input from file: {file_path}")
         else:
             self.load = None
@@ -98,7 +114,7 @@ class RaceEnv(gym.Env):
         self.sim_step = 0
         self.transition = False
         self.pause = False
-        self.steps_per_render = steps_per_render
+        self.steps_per_render = 1
 
         self.reset()
         if(self.do_render):
@@ -132,6 +148,7 @@ class RaceEnv(gym.Env):
         
 
     def reset(self):
+        self.transition = True
         # We need the following line to seed self.np_random
         super().reset()
 
@@ -160,6 +177,7 @@ class RaceEnv(gym.Env):
         self.reset_leg()
 
 
+
     def charge(self, time_length:timedelta):
         '''
         Updates energy and time, simulating the car sitting in place tilting its array optimally towards the sun for a period of time
@@ -174,10 +192,14 @@ class RaceEnv(gym.Env):
         irradiances = np.array([leg['sun_tilt'](self.leg_progress, time) for time in times])
         irradiances = np.nan_to_num(irradiances)
         powers = irradiances * self.car_props['array_multiplier']
-        
-        self.energy += powers.sum()
 
+        before = self.energy
+
+        self.energy += powers.sum() * timestep
         self.energy = min(self.energy, self.car_props['max_watthours']*3600)
+        
+        self.printc(f"Charged {round((self.energy - before)/3600.)}W. Now {self.time}")
+
        
         self.time = self.time + time_length
 
@@ -194,6 +216,8 @@ class RaceEnv(gym.Env):
         else:
             self.printc(f"Earned {round(meters2miles(leg['length']))} miles")
             self.miles_earned += meters2miles(leg['length']) #earn miles if completed on time
+            self.legs_completed += 1
+            self.legs_completed_names.append(leg['name'])
 
         is_last_leg = self.leg_index == (len(self.legs) - 1)
         if(is_last_leg and leg['type']=='base'):
@@ -542,8 +566,6 @@ class RaceEnv(gym.Env):
         # CHECK IF COMPLETED CURRENT LEG
         if(d_f >= leg['length']):
             self.printc(f"Completed leg: {leg['name']} at {self.time}")
-            self.legs_completed += 1
-            self.legs_completed_names.append(leg['name'])
             self.process_leg_finish() #will update leg and self.done if needed
 
             if(self.done):
@@ -565,12 +587,10 @@ class RaceEnv(gym.Env):
                 self.end_race()
                 return True
 
-            before_charge = self.energy
             self.charge(timedelta(hours=CHARGE_STOP_HOUR - DRIVE_STOP_HOUR))
             self.time = datetime(self.time.year, self.time.month, self.time.day+1, CHARGE_START_HOUR)
             self.charge(timedelta(hours=DRIVE_START_HOUR - CHARGE_START_HOUR))
-            after_charge = self.energy
-            self.printc(f"End of day, charged {round((after_charge - before_charge)/3600)}W")
+            self.printc(f"End of day. Now {self.time.month}-{self.time.day}")
 
 
         if(self.do_render and self.sim_step % self.steps_per_render == 0):
@@ -629,6 +649,7 @@ class RaceEnv(gym.Env):
         elevs = self.current_leg['altitude'](dists_leg)
         self.min_elev = min(elevs)
         self.max_elev = max(elevs)
+        ax_speed.set_ylim(0, self.max_elev*1.05)
         (self.ln_elev) = ax_elev.plot(dists_leg * meters2miles(), elevs, '-', label="elevation")
         (self.ln_distwindow_l,) = ax_elev.plot((meters2miles(self.distwindow_l), meters2miles(self.distwindow_l)), (self.min_elev, self.max_elev), 'y-')
         (self.ln_distwindow_r,) = ax_elev.plot((meters2miles(self.distwindow_r), meters2miles(self.distwindow_r)), (self.min_elev, self.max_elev), 'y-')
@@ -639,11 +660,11 @@ class RaceEnv(gym.Env):
         n_dists = len(self.weather_dists)
 
         solars = leg['sun_flat'](self.weather_dists, self.time.timestamp())
-        colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=NIGHT_GRAY, max_color=SUN_YELLOW)
-        self.pts_solar = ax_elev.scatter(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*self.max_elev*1.02, c=colors)
+        colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=SUN_RED, max_color=SUN_YELLOW)
+        self.pts_solar = ax_elev.scatter(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*(self.min_elev + 1.05*(self.max_elev - self.min_elev)), c=colors, s=solars/10)
 
         winds = self.current_leg['headwind'](self.weather_dists, self.time.timestamp())
-        self.pts_wind = ax_elev.quiver(self.weather_dists * meters2miles(), np.ones(n_dists)*self.max_elev, -winds, np.zeros(n_dists), headwidth=2, minlength=0, scale=200, scale_units='width')
+        self.pts_wind = ax_elev.quiver(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*(self.min_elev + 1*(self.max_elev - self.min_elev)), -winds, np.zeros(n_dists), headwidth=2, minlength=0, scale=200, scale_units='width')
 
         ax_elev.legend(loc='lower left')
 
@@ -717,13 +738,15 @@ class RaceEnv(gym.Env):
                     pause_str = "Press [P] to unpause"
                 else:
                     pause_str = "Press [P] to pause"
+                
+                speed_str = "[1-9] for simulation speed"
 
                 if(self.load is not None):
                     action_str = f"Loaded input from file: {self.load_name}"
                 else:
                     action_str = f"Target [Arrow keys]: {self.action['target_mph']}mph  \n Try loop [Enter]: {self.action['try_loop']}"
                 next_leg_str = f"Upcoming leg: {self.get_next_leg()}"
-                self.tx_input.set_text(f"{pause_str}\n{action_str}\n{next_leg_str}")
+                self.tx_input.set_text(f"{pause_str}\n{speed_str}\n{action_str}\n{next_leg_str}")
 
 
         def press(event):
@@ -745,6 +768,10 @@ class RaceEnv(gym.Env):
                 self.pause = not self.pause
                 update_tx()
                 self.bm.update()
+            if(event.key.isdigit()):
+                num = int(event.key)
+                if(num >= 1 and num <= 9):
+                    self.steps_per_render = num
 
             
         self.pause = True
@@ -762,8 +789,9 @@ class RaceEnv(gym.Env):
 
         if(self.sim_step % 50 ==0):
             solars = self.current_leg['sun_flat'](self.weather_dists, self.time.timestamp())
-            colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=NIGHT_GRAY, max_color=SUN_YELLOW)
+            colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=SUN_RED, max_color=SUN_YELLOW)
             self.pts_solar.set_facecolors(colors)
+            self.pts_solar.set_sizes(solars/10)
 
             winds = self.current_leg['headwind'](self.weather_dists, self.time.timestamp())
             self.pts_wind.set_UVC(U=-winds, V=np.zeros_like(winds))
@@ -894,10 +922,90 @@ class RaceEnv(gym.Env):
         return np.std(speeds) * mpersec2mph()
 
     def get_current_leg(self):
-        '''Get the base or loop that the car is currently driving. Is a dict of a various route data'''
+        '''Get the base or loop that the car is currently driving. Is a dict of a various route data.
+        Can use this to get the weather forecast or slopes along the entire leg.'''
         return self.current_leg
+
+    def get_all_legs(self):
+        '''Get all the possible base legs or loops in the race'''
+        return self.legs
 
     def get_log(self):
         '''Get the log dict, which contains the speed, distance, leg names, motor power, array power, etc. 
         at each time step.'''
         return self.log
+
+    def get_slope(self, dist=None):
+        '''Get the slope at a certain mile along the leg, in % grade (1% means 1m of elevation gain per 100m horizontal distance).
+        If the parameter dist is left empty, default is current location.'''
+        if(dist is None):
+            dist = self.leg_progress
+        else:
+            dist = miles2meters(dist)
+        slope = self.current_leg['slope'](dist)
+        return slope
+
+    def get_elevation(self, dist=None):
+        '''Get the altitude at a certain mile along the leg, in meters.
+        If the parameter dist is left empty, default is current location.'''
+        if(dist is None):
+            dist = self.leg_progress
+        else:
+            dist = miles2meters(dist)
+        slope = self.current_leg['altitude'](dist)
+        return slope
+
+    def get_headwind(self, dist=None, time=None):
+        '''Get the headwind in m/s at a certain mile and time along the leg.
+        Input the date either as a datetime object or unix timestamp in the local timezone.
+        If left empty, the default is the current location and current time.'''
+        if(dist is None):
+            dist = self.leg_progress
+        else:
+            dist = miles2meters(dist)        
+        if(time is None):
+            time = self.time
+        if(isinstance(time, datetime)):
+            time = time.timestamp()
+        headwind = self.current_leg['headwind'](self.leg_progress, time)
+        return headwind
+
+    def get_solar_flat(self, dist=None, time=None):
+        '''Get the solar irradiance in W/m^2 at a certain mile and time along the leg with a horizontal array.
+        This irradiance is used when the car is driving.
+        Input the date either as a datetime object or unix timestamp in the local timezone.
+        If left empty, the default is the current location and current time.'''
+        if(dist is None):
+            dist = self.leg_progress
+        else:
+            dist = miles2meters(dist)
+        if(time is None):
+            time = self.time
+        if(isinstance(time, datetime)):
+            time = time.timestamp()
+        solar_flat = self.current_leg['sun_flat'](self.leg_progress, time)
+        return solar_flat
+
+    def get_solar_tilt(self, dist=None, time=None):
+        '''Get the solar irradiance in W/m^2 at a certain mile and time along the leg with an array tilted at the optimal angle.
+        This irradiance is used when the car is stopped to charge.
+        Input the date either as a datetime object or unix timestamp in the local timezone.
+        If left empty, the default is the current location and current time.'''
+        if(dist is None):
+            dist = self.leg_progress
+        else:
+            dist = miles2meters(dist)
+        if(time is None):
+            time = self.time
+        if(isinstance(time, datetime)):
+            time = time.timestamp()
+        solar_tilt = self.current_leg['sun_tilt'](self.leg_progress, time)
+        return solar_tilt
+
+    def get_leg_index(self):
+        '''Get the index of the leg the car is currently driving'''
+        return self.leg_index
+
+    def get_car_props(self):
+        '''Get the dict of car properties. See the .json files in the cars/ folder for the information offered.'''
+        return self.car_props

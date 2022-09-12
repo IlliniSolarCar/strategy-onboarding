@@ -6,7 +6,7 @@
     "mass": 250,
     "min_mph": 5,
     "max_mph": 55,
-    "array_multiplier": 0.8,
+    "array_multiplier": 0.7,
     "max_motor_output_power": 6000,
     "max_motor_input_power": -4000,
     "max_watthours": 5400,
