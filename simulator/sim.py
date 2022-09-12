@@ -21,12 +21,12 @@ def main():
 
     while True:
         
-        '''Preprogrammed input: Uncomment the following line to make the car drive at 35mph for the first leg of the race, 
+        '''Preprogrammed input: Uncomment the following lines to make the car drive at 35mph for the first leg of the race, 
         then 45mph for the rest. Setters also exist for acceleration and deceleration.'''
         if(env.get_leg_index() == 0):
-            env.set_target_mph(40)
+            env.set_target_mph(35)
         else:
-            env.set_target_mph(55)
+            env.set_target_mph(45)
 
         '''Preprogrammed input: Uncomment the following line to make the car attempt any loops it encounters. This might not
         always be a good idea because loops only count if finished on time. No partial credit means time and energy can be wasted
@@ -34,7 +34,7 @@ def main():
         env.set_try_loop(True)
 
 
-        '''Data: Uncomment the following 3 lines to print the solar irradiance for a flat panel at 1 mile and 1 hour later. 
+        '''Data: Uncomment the following 4 lines to print the solar irradiance for a flat panel at 1 mile and 1 hour later. 
         Similar functions exist for headwind, slope, elevation, and car logs.
         '''
         # mile_later = env.get_leg_progress() + 1
