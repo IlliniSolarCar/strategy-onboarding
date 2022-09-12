@@ -662,9 +662,12 @@ class RaceEnv(gym.Env):
         solars = leg['sun_flat'](self.weather_dists, self.time.timestamp())
         colors = interp_color(vals=solars, min_val=min(solars), max_val=max(solars), min_color=SUN_RED, max_color=SUN_YELLOW)
         self.pts_solar = ax_elev.scatter(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*(self.min_elev + 1.05*(self.max_elev - self.min_elev)), c=colors, s=solars/10)
+        ax_elev.text(-0.5, (self.min_elev + 1.05*(self.max_elev - self.min_elev)), "solar", ha='right', va='center')
 
         winds = self.current_leg['headwind'](self.weather_dists, self.time.timestamp())
         self.pts_wind = ax_elev.quiver(self.weather_dists * meters2miles(), np.ones_like(self.weather_dists)*(self.min_elev + 1*(self.max_elev - self.min_elev)), -winds, np.zeros(n_dists), headwidth=2, minlength=0, scale=200, scale_units='width')
+        ax_elev.text(-0.5, (self.min_elev + 1.0*(self.max_elev - self.min_elev)), "wind", ha='right', va='center')
+
 
         ax_elev.legend(loc='lower left')
 
