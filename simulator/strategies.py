@@ -1,3 +1,18 @@
+# A list of potential strategies
+# In each strategy, you may put default values in its init
+# Then when get_speed_with_parameters is called, you have access to both any parameters the user
+# wants to pass in, and the environment.
+# Create your own strategies by making a subclass here. All they need is the following three steps:
+# 1) an __init__ method that lets the user initialize the class. This will change depending on what default information is needed
+# 2) a get_speed_with_parameters(self, parameters, environment) method with parameters as a dictionary with any values (could be None),
+#    and an environment object (which is a raceEnv object)
+# 3) You need to register it as part of the init method in the strategy superclass.
+#    You can do that like this:
+#    if self.strategy_name == 'my_strategy':
+#        self.strategy = self.MyStrategy(my_default_speed=13, my_default_accel=12)
+#    You need to change my_default_speed and  my_default_accel to whatever is needed to initialize your specific strategy
+
+
 from typing import Optional
 import numpy as np
 import csv
@@ -19,7 +34,7 @@ class Strategy:
             self.min_speed_default = default_min_speed
             self.max_speed_default = default_max_speed
 
-        def get_speed(self, min_speed: Optional[int] = None, max_speed: Optional[int] = None):
+        def get_random_speed(self, min_speed: Optional[int] = None, max_speed: Optional[int] = None):
             min_speed = min_speed if min_speed is not None else self.min_speed_default
             max_speed = max_speed if max_speed is not None else self.max_speed_default
             return np.random.randint(min_speed, max_speed)
@@ -28,20 +43,20 @@ class Strategy:
 
             min_speed = parameters['min_speed'] if parameters is not None and 'min_speed' in parameters else None
             max_speed = parameters['min_speed'] if parameters is not None and 'min_speed' in parameters else None
-            return self.get_speed(min_speed, max_speed)
+            return self.get_random_speed(min_speed, max_speed)
 
     class LazyStrategy:
         def __init__(self, default_target_speed: int):
             self.default_target_speed = default_target_speed
 
-        def get_speed(self, target_speed: Optional[int] = None):
+        def get_lazy_speed(self, target_speed: Optional[int] = None):
             target_speed = target_speed if target_speed is not None else self.default_target_speed
             return target_speed
 
         def get_speed_with_parameters(self, parameters: Optional[dict] = None, environment=None):
-            target_speed = parameters['target_speed'] if 'target_speed' in parameters else None
-            return self.get_speed(target_speed=target_speed)
-    
+            target_speed = parameters['target_speed'] if parameters is not None and 'target_speed' in parameters else None
+            return self.get_lazy_speed(target_speed=target_speed)
+
     class HardcodedStrategy:
         # These IDX is what index of the csv file it is
         # leg, distance, target_speed
@@ -75,7 +90,7 @@ class Strategy:
                     # we add a default condition if the user didn't specify what to do at distance 0
                     self.leg_name_to_command[leg_name].insert(0, [leg_name, 0, self.default_speed])
 
-        def get_speed(self, leg_name, distance_into_leg):
+        def get_hardcoded_speed(self, leg_name, distance_into_leg):
             if leg_name not in self.leg_name_to_command:
                 return self.default_speed
             commands = self.leg_name_to_command[leg_name]
@@ -97,7 +112,7 @@ class Strategy:
                 # If we are on the second topeka loop, this would look like AL2
                 leg_name = f'{leg_name}L{loop_index}'
             distance_into_leg = meters2miles(environment.leg_progress)
-            return self.get_speed(leg_name=leg_name, distance_into_leg=distance_into_leg)
+            return self.get_hardcoded_speed(leg_name=leg_name, distance_into_leg=distance_into_leg)
             #return get_speed(leg_name=environment)
 
 
@@ -113,4 +128,11 @@ class Strategy:
 
 
     def get_speed(self, parameters: Optional[dict] = None, environment=None) -> int:
-        return self.strategy.get_speed_with_parameters(parameters, environment)
+        speed = self.strategy.get_speed_with_parameters(parameters, environment)
+        min_mph = environment.get_min_mph()
+        max_mph = environment.get_max_mph()
+        if environment is not None and min_mph > speed:
+            return min_mph
+        elif environment is not None and max_mph < speed:
+            return max_mph
+        return speed
