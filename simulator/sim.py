@@ -1,51 +1,60 @@
 # import simulator tools
-from xmlrpc.server import SimpleXMLRPCRequestHandler
 from raceEnv import RaceEnv
 from route.route import Route
+from strategies import Strategy
+
 
 import numpy as np
 import argparse
-from strategies import Strategy
+import json
+import os
+import sys
 
-def main(run_infinitely=False, target_speed_file=None, strategy_attributes=None):
+dir = os.path.dirname(__file__)
+sys.path.insert(0, dir+'/..')   # allow imports from parent directory "onboarding22"
+
+
+def main(run_infinitely=False, target_speed_file=None, strategy_attributes=None, headless=False):
+    headless = True
     strategy = Strategy(parameters=strategy_attributes)
 
+    env = RaceEnv(do_render=not headless, do_print=False, pause_time=0)
 
-
-    env = RaceEnv(do_render=True, do_print=False, pause_time=0)
-    
     env.set_try_loop(True)
 
     while True:
         if strategy is not None:
-            new_speed = strategy.get_speed(parameters=None)
+            new_speed = strategy.get_speed(parameters=None, environment=env)
+            if new_speed != 30:
+                dA = 0
             env.set_target_mph(new_speed)
-
-        if target_speed_file is not None:
-            env.set_target_mph(np.random.randint(30, 40))
         done = env.step()
-        
+        # env.get_current_leg()
+        # get number of legs completed
         if done:
-            print(env.get_average_mph(), env.get_watthours(), env.get_time(), env.get_miles_earned())
-            print(env.get_legs_attempted())
-            print(env.get_legs_completed())
+            print(f'average mph: {env.get_average_mph()}', env.get_watthours(), env.get_time(), env.get_miles_earned())
+            print(f'average watt hours: {env.get_watthours()}')
+            print(f'time: {env.get_time()}')
+            print(f'miles earned: {env.get_miles_earned()}')
+            print(f'legs completed: {env.get_legs_completed()}')
             env.reset()
             if not run_infinitely:
                 break #if you only want to run the simulation once
-    
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Strategy Simulation.')
     parser.add_argument('--run_infinitely', '-ri', action='store_true')
-    parser.add_argument('--strategy', '-s', help='name of strategy (see strategies.py)')
+    parser.add_argument('--strategy_file', '-sf', help='name of strategy (see strategies.py). If none, you will be relying only on user input', default=None)
+    parser.add_argument('--headless', '-hl', action='store_true')
     args = parser.parse_args()
-    strategy_attributes = {
-        'name': 'random',
-        'min_speed_default': 20,
-        'max_speed_default': 40
-    }
-    strategy_attributes = {
-        'name': 'lazy',
-        'default_target_speed': 30
-    }
-    main(run_infinitely=args.run_infinitely, strategy_attributes=strategy_attributes)
+    strategy_file = args.strategy_file
+    strategy_file = 'config/hardcoded_default.json'
+    if strategy_file is not None:
+        try:
+            strategy = json.load(open(strategy_file))
+        except:
+            raise Exception(f'Error: Could not read strategy file {strategy_file}'
+                            'Check the path and make sure it is a json file')
+
+    main(run_infinitely=args.run_infinitely, strategy_attributes=strategy, headless=args.headless)

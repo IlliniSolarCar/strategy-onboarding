@@ -270,7 +270,7 @@ class RaceEnv(gym.Env):
                     
                     #could be base route, or a loop that user doesn't want to try again.
                     self.charge(leg['close'] - self.time)                        #charge until stage close
-                    
+
                 #at this point stage must be closed. 
                 if(is_last_leg):
                     self.printc('Completed the last loop, not enough time to complete another. Race done.')
@@ -742,3 +742,21 @@ class RaceEnv(gym.Env):
         '''Get average mph since the start of the race'''
         speeds = np.concatenate(self.log['speeds']).flat
         return np.mean(speeds) * mpersec2mph()
+
+    def get_loop_index(self) -> int:
+        """Gets the number of the individual loop you are on. 
+        For example if your on the second Topeka loop, this function would return 2
+        0 if your not in a loop currently"""
+        current_leg = self.current_leg['name'].split('.')[0]
+        if len(current_leg) < 2 or current_leg[-1] != 'L':
+            return 0
+        count = 1
+
+        leg_abbrevs = list(map(lambda v: v.split('.')[0], self.legs_completed_names))
+
+        for i in range(len(leg_abbrevs) - 1, -1, -1):
+            if leg_abbrevs[i] != current_leg:
+                break
+            else:
+                count += 1
+        return count
