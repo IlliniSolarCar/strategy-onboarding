@@ -1,4 +1,9 @@
 '''
+This is similar to the sim.py class, but gives you the option of adding strategies and using the command line. See the README or strategies.py to see how to add strategies.
+If you are too lazy to use command line arguments every time, feel free to override the arguments in the main function immediately after the signature.
+'''
+
+'''
 This simulator is designed to be controlled in 3 ways:
 1. Keyboard inputs: Create the RaceEnv object with load=None and do_render=True.
 2. Preprogrammed inputs: Create the RaceEnv object with load=None and use env.set_target_mph() and env.set_try_loop().
