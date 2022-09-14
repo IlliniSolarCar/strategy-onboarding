@@ -44,9 +44,25 @@ Schedule:
 * Cars should arrive at Grand Island between 9:00 and 18:00 on 7/10. When they arrive, cars stop and charge for 45 minutes, then choose whether to do the Grand Island Loop. If a car doesn't arrive by 18:00, they are considered trailered and drop to last place :(
 * If the team tries the loop, they must finish the loop by 18:00. After finishing the loop, they may attempt another loop after waiting 15 minutes.
 
-# Adding Strategies
-* You have a couple options for this. To set speeds in the environment, you can use env.set_target_mph(new_speed), and to set acceleration/deceleration, use set_acceleration(acc)/set_deceleration(acc). For this, you are fine modifying the while loop inside of sim.py
-* If you would like to use a more complex strategy, you can define it in the strategy class (strategies.py). sim_cli.py currently supports this. We have already implemented some strategies, including RandomStrategy(Choose a random number), LazyStrategy(Choose a single speed for entire race), and HardcodedStrategies(Choose speed based on CSV file). Every strategy needs to be a nested class inside of the  strategy superclass. You need the following three things.
+# Testing your own strategy
+  There are 3 ways to control the simulated car. In order of increasing experience required:
+1. Keyboard controls as the simulation runs. No coding needed.
+2. Programmatically make decisions. Simple function calls inside a while loop.
+3. Command line interface. Create custom strategies using subclasses and .csv files. 
+  
+## Keyboard controls with `sim_key.py`
+* Simply run `sim_key.py`, which creates a simulation window. Press [P] to play the simulation and control speeds with up and down arrow keys. Various graphs display car and race environment properties along the route.
+
+## Programmatically make decisions per timestep with `sim.py`
+* `sim.py` contans a while loop that executes every step of the simulation. You may insert code here to:
+  * set target speed with `env.set_target_mph(new_speed)`
+  * set acceleration/deceleration with  `set_acceleration(acc)` and `set_deceleration(acc)`
+  * set whether to do a loop with `env.set_try_loop(True or False)`
+  * get various route data like slope with `env.get_slope()`
+* The RaceEnv declaration line also lets you hardcode options such as whether to save the simulation log, render the file, or print progress along the race.
+
+## Command line interface: `sim_cli.py`
+* If you would like to use a more complex strategy, you can define it in the strategy class (strategies.py). `sim_cli.py` currently supports this. We have already implemented some strategies, including RandomStrategy(Choose a random number), LazyStrategy(Choose a single speed for entire race), and HardcodedStrategies(Choose speed based on CSV file). Every strategy needs to be a nested class inside of the  strategy superclass. You need the following three things.
 * 1) an __init__ method that lets the user initialize the class. This will change depending on what default information is needed
 * 2) a get_speed_with_parameters(self, parameters, environment) method with parameters as a dictionary with any values (could be None), and an environment object (which is a raceEnv object)
 * 3) You need to register it as part of the init method in the strategy superclass.
