@@ -71,7 +71,7 @@ Schedule:
       if self.strategy_name == 'my_strategy':
          self.strategy = self.MyStrategy(my_default_speed=13, my_default_accel=12)
       ```
-* You need to change my_default_speed and  my_default_accel to whatever is needed to initialize your specific strategy
+* You need to change the (my_default_speed=13, my_default_accel=12) part to whatever is needed to initialize your specific strategy. Note this may not be (my_default_speed, my_default_accel). You strategies specific parameters that are required are defined in the __init__function of that specific strategy.
 *  Each strategy must also contain a dictionary of the default parameters. You can copy and paste our examples (inside of the strategies folder for example 'strategies/lazy_default.json'). The important thing is that the configuration file contains the name of the strategy that matches up with the __init__() method in the strategy superclass. Please make sure if you create your own strategy that you add a default configuration.
 
 ## Hardcoded Strategy:
