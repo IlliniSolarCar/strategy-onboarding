@@ -76,8 +76,6 @@ class Strategy:
                         if j in idxs_to_convert:
                             self.all_commands[i][j] = int(self.all_commands[i][j])
 
-
-                #self.all_commands = list(map(lambda l: map(lambda v: int(v) if v == 1 or v == 2 else v, l), self.all_commands))
             self.leg_name_to_command = {}
             for command in self.all_commands:
                 if command[self.leg_idx] not in self.leg_name_to_command:
@@ -113,8 +111,6 @@ class Strategy:
                 leg_name = f'{leg_name}L{loop_index}'
             distance_into_leg = meters2miles(environment.leg_progress)
             return self.get_hardcoded_speed(leg_name=leg_name, distance_into_leg=distance_into_leg)
-            #return get_speed(leg_name=environment)
-
 
     def __init__(self, parameters: dict):
         self.strategy_name = parameters['name']
@@ -125,7 +121,6 @@ class Strategy:
             self.strategy = self.LazyStrategy(default_target_speed=parameters['target_speed'])
         if self.strategy_name == 'hardcoded':
             self.strategy = self.HardcodedStrategy(csv_file_name=parameters['csv_file_name'])
-
 
     def get_speed(self, parameters: Optional[dict] = None, environment=None) -> int:
         speed = self.strategy.get_speed_with_parameters(parameters, environment)

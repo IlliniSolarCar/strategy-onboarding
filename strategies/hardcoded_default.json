@@ -1,4 +1,4 @@
 {
     "name": "hardcoded",
-    "csv_file_name": "config/hardcoded/speeds.csv"
+    "csv_file_name": "strategies/hardcoded/speeds.csv"
 }

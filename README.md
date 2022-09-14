@@ -45,8 +45,8 @@ Schedule:
 * If the team tries the loop, they must finish the loop by 18:00. After finishing the loop, they may attempt another loop after waiting 15 minutes.
 
 # Adding Strategies
-* You have a couple options for this. To set speeds in the environment, you can use env.set_target_mph(new_speed), and to set acceleration/deceleration, use set_acceleration(acc)/set_deceleration(acc). 
-* If you would like to use a more complex strategy, we reccomend that you define it in the strategy class (strategies.py). We have already implemented some strategies, including RandomStrategy(Choose a random number), LazyStrategy(Choose a single speed for entire race), and HardcodedStrategies(Choose speed based on CSV file). Every strategy needs to be a nested class inside of the  strategy superclass. You need the following three things.
+* You have a couple options for this. To set speeds in the environment, you can use env.set_target_mph(new_speed), and to set acceleration/deceleration, use set_acceleration(acc)/set_deceleration(acc). For this, you are fine modifying the while loop inside of sim.py
+* If you would like to use a more complex strategy, you can define it in the strategy class (strategies.py). sim_cli.py currently supports this. We have already implemented some strategies, including RandomStrategy(Choose a random number), LazyStrategy(Choose a single speed for entire race), and HardcodedStrategies(Choose speed based on CSV file). Every strategy needs to be a nested class inside of the  strategy superclass. You need the following three things.
 * 1) an __init__ method that lets the user initialize the class. This will change depending on what default information is needed
 * 2) a get_speed_with_parameters(self, parameters, environment) method with parameters as a dictionary with any values (could be None), and an environment object (which is a raceEnv object)
 * 3) You need to register it as part of the init method in the strategy superclass.
@@ -56,7 +56,7 @@ Schedule:
          self.strategy = self.MyStrategy(my_default_speed=13, my_default_accel=12)
       ```
 * You need to change my_default_speed and  my_default_accel to whatever is needed to initialize your specific strategy
-*  Each strategy must also contain a dictionary of the default parameters. You can copy and paste our examples (inside of the strategies folder for example 'strategies/lazy_default.json'. The important thing is that the configuration file contains the name of the strategy that matches up with the __init__() method in the strategy superclass. Please make sure if you create your own strategy that you add a default configuration.
+*  Each strategy must also contain a dictionary of the default parameters. You can copy and paste our examples (inside of the strategies folder for example 'strategies/lazy_default.json'). The important thing is that the configuration file contains the name of the strategy that matches up with the __init__() method in the strategy superclass. Please make sure if you create your own strategy that you add a default configuration.
 
 ## Hardcoded Strategy:
 * The simplest way to code a complex strategy that requires no coding knowledge is to use HardcodedStrategy. This is a csv file that looks like this:
@@ -71,7 +71,7 @@ B,    0,       30
 ```
 * This means that once we reach a certain distance into a leg the target speed turns into what you set it too. If a leg is not specified or it is before the distance is reached, then it defaults to a target speed.
 * You also need to change the config files (for example strategies/hardcoded_default.json) csv_file_name parameter to match the csv file you want.
-* Run it with the following command: `python simulator/sim.py -sf strategies/hardcoded_default.json`
+* Run it with the following command: `python simulator/sim_cli.py -sf strategies/hardcoded_default.json`
 
 
 # Common problems:
